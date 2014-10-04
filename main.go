@@ -16,6 +16,8 @@ var (
 	conf = flag.String("conf", "conf.json", "JSON file with configs")
 )
 
+var confs []Config
+
 //Config represents a configuration of handler
 type Config struct {
 	Method string `json:"method"`
@@ -34,41 +36,50 @@ func main() {
 		log.Fatalf("Error opening file %s", *conf)
 	}
 
-	var confs []Config
 	err = json.NewDecoder(f).Decode(&confs)
 	if err != nil {
 		log.Fatalf("Error reading file %v", *conf)
 	}
 
 	log.Printf("Stub Server running at :%d with conf file %s", *port, *conf)
-	mux := http.NewServeMux()
-
-	for _, conf := range confs {
-		mux.HandleFunc(conf.Path, func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != conf.Method {
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			} else {
-				switch conf.Type {
-				case "":
-					w.Write([]byte(conf.Body))
-				case "json":
-					w.Header().Add("Content-Type", "application/json")
-					j, err := os.Open(conf.Body)
-					if err != nil {
-						log.Fatalf("Error on open file %v", err)
-					}
-					b, err := ioutil.ReadAll(j)
-					if err != nil {
-						log.Fatalf("Error on read file %v", err)
-					}
-					w.Write(b)
-				}
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		served := false
+		for _, conf := range confs {
+			if r.URL.Path == conf.Path {
+				conf.serve(w, r)
+				served = true
 			}
-		})
-	}
-
-	err = http.ListenAndServe(fmt.Sprintf(":%d", *port), mux)
+		}
+		if !served {
+			http.Error(w, "Not found", http.StatusNotFound)
+		}
+	})
+	err = http.ListenAndServe(fmt.Sprintf(":%d", *port), nil)
 	if err == nil {
 		log.Fatal("Failed to run server: ", err)
+	}
+}
+
+//serve func that serve path with a conf
+func (conf *Config) serve(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Serving %v %v with %#v", r.Method, r.URL, conf)
+	if r.Method != conf.Method {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	} else {
+		switch conf.Type {
+		case "":
+			w.Write([]byte(conf.Body))
+		case "json":
+			w.Header().Add("Content-Type", "application/json")
+			j, err := os.Open(conf.Body)
+			if err != nil {
+				log.Fatalf("Error on open file %v", err)
+			}
+			b, err := ioutil.ReadAll(j)
+			if err != nil {
+				log.Fatalf("Error on read file %v", err)
+			}
+			w.Write(b)
+		}
 	}
 }
