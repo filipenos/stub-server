@@ -22,6 +22,7 @@ var confs []Config
 type Config struct {
 	Method string `json:"method"`
 	Path   string `json:"path"`
+	Code   int    `json:"code"`
 	Body   string `json:"body"`
 	Type   string `json:"type"`
 }
@@ -66,6 +67,9 @@ func (conf *Config) serve(w http.ResponseWriter, r *http.Request) {
 	if r.Method != conf.Method {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	} else {
+		if conf.Code != 0 && conf.Code != http.StatusOK {
+			w.WriteHeader(conf.Code)
+		}
 		switch conf.Type {
 		case "":
 			w.Write([]byte(conf.Body))
