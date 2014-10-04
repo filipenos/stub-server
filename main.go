@@ -20,7 +20,8 @@ var (
 type Config struct {
 	Method string `json:"method"`
 	Path   string `json:"path"`
-	Json   string `json:"json"`
+	Body   string `json:"body"`
+	Type   string `json:"type"`
 }
 
 func init() {
@@ -47,16 +48,21 @@ func main() {
 			if r.Method != conf.Method {
 				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			} else {
-				w.Header().Add("Content-Type", "application/json")
-				j, err := os.Open(conf.Json)
-				if err != nil {
-					log.Fatalf("Error on open file %v", err)
+				switch conf.Type {
+				case "":
+					w.Write([]byte(conf.Body))
+				case "json":
+					w.Header().Add("Content-Type", "application/json")
+					j, err := os.Open(conf.Body)
+					if err != nil {
+						log.Fatalf("Error on open file %v", err)
+					}
+					b, err := ioutil.ReadAll(j)
+					if err != nil {
+						log.Fatalf("Error on read file %v", err)
+					}
+					w.Write(b)
 				}
-				b, err := ioutil.ReadAll(j)
-				if err != nil {
-					log.Fatalf("Error on read file %v", err)
-				}
-				w.Write(b)
 			}
 		})
 	}
